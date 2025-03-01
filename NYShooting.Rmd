@@ -1,0 +1,309 @@
+---
+title: "NYPD Shooting Report"
+author: "Nirmal Kumar"
+date: "2025-02-09"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## NYPD Shooting Report
+
+List of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year.
+
+This is a breakdown of every shooting incident that occurred in NYC going back to 2006 through the end of the previous calendar year. This data is manually extracted every quarter and reviewed by the Office of Management Analysis and Planning before being posted on the NYPD website. Each record represents a shooting incident in NYC and includes information about the event, the location and time of occurrence. In addition, information related to suspect and victim demographics is also included.
+
+__Source__ https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic
+
+### Row Description
+
+- Each __row__ in this dataset is a __shooting incident__.
+
+### Column Description
+
+- __INCIDENT_KEY__: Randomly generated persistent ID for each arrest
+- __OCCUR_DATE__: Exact date of shooting incident
+- __OCCUR_TIME__: Exact time of the shooting incident
+- __BORO__: Borough where the shooting incident occurred
+- __LOC_OF_OCCUR_DESC__: Not provided
+- __PRECINCT__: Precinct where the shooting incident occurred
+- __JURISDICTION_CODE__: Jurisdiction where the shooting incident occurred. 0 - Patrol, 1 - Transit, 2 - Housing, 3 or Higher - non NYPD Jurisdiction
+- __LOC_CLASSFCTN_DESC__: Not provided
+- __LOCATION_DESC__: Location of the shooting incident
+- __STATISTICAL_MURDER_FLAG__: Shooting resulted in the victim's death which would be counted as a murder
+- __PERP_AGE_GROUP__: Perpetrator's age within a category
+- __PERP_SEX__: Perpetrator's sex description
+- __PERP_RACE__: Perpetrator's race description
+- __VIC_AGE_GROUP__: Victim's age within a category
+- __VIC_SEX__: Victim's sex description
+- __VIC_RACE__: Victim's race description
+- __XCOORD_CD__: Midblock X-coordinate for New York State Plane Coordinate System, Long Island Zone, NAD 83, units feet
+- __Y_COORD_CD__: Midblock Y-coordinate for New York State Plane Coordinate System, Long Island Zone, NAD 83, units feet
+- __LATITUDE__: Latitude coordinate
+- __LONGITUDE__: Longitude coordinate
+- __Lon_Lat__: Longitude and Latitude Coordinates for mapping
+
+### Import Libraries
+```{r load.libraries, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+```
+
+### Import shooting dataset
+```{r import.shooting.data, warning=FALSE, message=FALSE}
+nyc_url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv"
+
+nyc_shooting <- read_csv(nyc_url)
+```
+
+### Explore Columns
+```{r explore.columns, warning=FALSE, message=FALSE}
+str(nyc_shooting)
+```
+
+### Tidy and Transform Data
+
+- __Remove following features/columns__
+- INCIDENT_KEY
+- PRECINCT
+- X_COORD_CD
+- Y_COORD_CD
+- Latitude
+- Longitude
+- Lon_Lat
+
+```{r tidy.transform, warning=FALSE, message=FALSE}
+nyc_shooting <- nyc_shooting %>% select(-c(INCIDENT_KEY,
+                                           PRECINCT,
+                                           X_COORD_CD,
+                                           Y_COORD_CD,
+                                           Latitude,
+                                           Longitude,
+                                           Lon_Lat))
+
+
+summary(nyc_shooting)
+```
+#### __Transforming columns__
+- __Fix date format__
+- __factor categorical columns__
+- __print summary__
+
+```{r fix.date.factor.summary, warning=FALSE, message=FALSE}
+# fix date format
+nyc_shooting$OCCUR_DATE <- mdy(nyc_shooting$OCCUR_DATE)
+
+# factor categorical variables
+nyc_shooting$PERP_AGE_GROUP <- factor(nyc_shooting$PERP_AGE_GROUP)
+nyc_shooting$PERP_SEX <- factor(nyc_shooting$PERP_SEX)
+nyc_shooting$PERP_RACE <- factor(nyc_shooting$PERP_RACE)
+
+nyc_shooting$VIC_AGE_GROUP <- factor(nyc_shooting$VIC_AGE_GROUP)
+nyc_shooting$VIC_RACE <- factor(nyc_shooting$VIC_RACE)
+nyc_shooting$VIC_SEX <- factor(nyc_shooting$VIC_SEX)
+
+nyc_shooting$LOC_CLASSFCTN_DESC <- factor(nyc_shooting$LOC_CLASSFCTN_DESC) 
+
+nyc_shooting$LOCATION_DESC <- factor(nyc_shooting$LOCATION_DESC)
+
+nyc_shooting$BORO <- factor(nyc_shooting$BORO)
+
+nyc_shooting$LOC_OF_OCCUR_DESC <- factor(nyc_shooting$LOC_OF_OCCUR_DESC)
+
+# replace JURISDICTION_CODE with categorical names
+nyc_shooting <- nyc_shooting %>% mutate(JURISDICTION_CODE = recode(JURISDICTION_CODE,
+                                                                   '0' = "Patrol",
+                                                                   '1' = "Transit",
+                                                                   '2' = "Housing"))
+
+nyc_shooting$JURISDICTION_CODE <- factor(nyc_shooting$JURISDICTION_CODE)
+
+summary(nyc_shooting)
+```
+
+### Analysis based on the summary 
+- __BORO__: Most of the shooting happened in Brooklyn
+- __LOC_OF_OCCUR_DESC__: This field is not captured for majority of the shootings
+- __JURISDICTION_CODE__: Most of the shooting was recorded in Patrol Jurisdiction Code
+- __STATUSTICAL_MURDER_FLAT__: Majority of the shooting did not result into murder
+- __Perpetrator__: Approximately in little more than nine thousand cases, Perpetrator's data is missing, which could mean, Perpetrator was never found. Also per the given data, majority of the Perpetrator were black, Male
+- __Victim__: According to given data, majority of the victim is black, male, and belonging to age group between 25 and 44 years
+
+
+### Missing data
+```{r missing.data, warning=FALSE, message=FALSE}
+# calculate percentage of missing data
+#sapply(nyc_shooting,function(x) sum(is.na(x)) / length(x))
+
+# Calculate the percentage of missing data for each column
+missing_data_percentage <- sapply(nyc_shooting, function(x) sum(is.na(x)) / length(x) * 100)
+
+# Format the percentages to two decimal places with a % symbol
+missing_data_percentage_formatted <- sapply(missing_data_percentage, function(x) sprintf("%.2f%%", x))
+
+# Print the formatted result
+missing_data_percentage_formatted
+```
+__Analysis__
+- Almost 32% of Perpetrator's data, ie Age, Sex and Race is missing, which could imply that perpetrator was never found in those cases
+
+
+### Visualization
+
+#### Perpetrator's Profile
+
+##### Perpetrator's profile - Sex
+```{r visualization.Perperator.sex, warning=FALSE, message=FALSE}
+
+ggplot(nyc_shooting,aes(x=PERP_SEX)) +
+  geom_bar(position = "stack") +
+  labs(title = "Perperator's Sex Distribution", x = "Perpetrator's Sex", y = "Number of Shootings") + theme_classic()
+
+```
+
+##### Perpetrator's Age Group
+
+```{r visualization.Perperator.age, warning=FALSE, message=FALSE}
+
+ggplot(nyc_shooting,aes(x=PERP_AGE_GROUP)) +
+  geom_bar(position = "stack") +
+  labs(title = "Perperator's Age Group Distribution", x = "Perpetrator's Age Group", y = "Number of Shootings") + theme_classic()
+
+```
+
+##### Perpetrator's Race
+```{r visualization.Perperator.race, warning=FALSE, message=FALSE}
+
+ggplot(nyc_shooting,aes(x=PERP_RACE)) +
+  geom_bar(position = "stack") +
+  labs(title = "Perperator's Race Distribution", x = "Perpetrator's Race", y = "Number of Shootings") + theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+#### Victim's Profile
+
+##### Victim's Age Group
+```{r visualization.Victim.age, warning=FALSE, message=FALSE}
+ggplot(nyc_shooting,aes(x=VIC_AGE_GROUP)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Victim's Age Group Distribution", x = "Victim's Age Group", y = "Number of Shootings") + theme_minimal()
+
+```
+
+- Most of the Victim is in the age group of 25-44 followed by 18-24 age group
+
+
+
+##### Victim's Sex
+```{r visualization.Victim.sex, warning=FALSE, message=FALSE}
+ggplot(nyc_shooting,aes(x=VIC_SEX)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Victim's Sex Distribution", x = "Victim's Sex", y = "Number of Shootings") + theme_minimal()
+
+```
+
+- Most of the Victims are Male per given data
+
+
+
+##### Victim's Race
+```{r visualization.Victim.race, warning=FALSE, message=FALSE}
+ggplot(nyc_shooting,aes(x=VIC_RACE)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Victim's Race Distribution", x = "Victim's Race", y = "Number of Shootings") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+- Most of the Victims are black per given data
+
+
+
+##### Murder Profile
+```{r visualization.murder, warning=FALSE, message=FALSE}
+ggplot(nyc_shooting,aes(x=STATISTICAL_MURDER_FLAG)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Murder Distribution", x = "Murder Flag", y = "Number of Shootings") + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+
+- Around 25% of the shooting resulted in murders
+
+
+#### Shooting by Borough by year
+```{r Boro.per.year, warning=FALSE, message=FALSE}
+Shootings_by_Boro_per_year <- nyc_shooting %>%
+  group_by(BORO, YEAR = format(OCCUR_DATE, "%Y")) %>%
+  summarise(INCIDENTS = n())
+
+Shootings_by_Boro_per_year  %>%
+  ggplot(aes(x=YEAR, y=INCIDENTS, group = BORO)) +
+  geom_line(aes(color = BORO)) +
+  geom_point(aes(color = BORO)) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(title = "Shootings by Borough over time")
+
+```
+
+- Shooting have gradually decreased from 2006 thru 2018, but again there is sudden spike in shooting in 2020 and 2021, probably due to Covid
+- Most of the shooting have been recorded in Brooklyn
+
+
+
+#### Shooting by Borough by hour
+
+```{r Boro.per.hour, warning=FALSE, message=FALSE}
+
+Shootings_by_Boro_per_hour <- nyc_shooting %>%
+  group_by(BORO, HOUR = as.POSIXlt(OCCUR_TIME)$hour) %>%
+  summarise(INCIDENTS = n())
+
+Shootings_by_Boro_per_hour  %>%
+  ggplot(aes(x=HOUR, y=INCIDENTS, group = BORO)) +
+  geom_line(aes(color = BORO)) +
+  geom_point(aes(color = BORO)) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 90)) +
+  labs(title = "Shootings by Borough over 24hr Day")
+
+```
+
+- Majority of the shooting happens in late night or early morning and it is minimum from 6 am till 12 noon, then gradually increases
+
+
+
+### Model Building - Logistic Regression
+```{r logistic.regression, warning=FALSE, message=FALSE}
+model <- glm(STATISTICAL_MURDER_FLAG ~ ., data=nyc_shooting, family = 'binomial')
+summary(model)
+```
+
+- Based on the output, JURISDICTION_CODEPatrol, LOC_OF_OCCUR_DESCOUTSIDE, PERP_AGE_GROUP25-44, PERP_AGE_GROUP45-64 are found to impact most, if the shooting will result into murder
+
+
+### Additional Questions
+- We should clean up the all the missing values, and then try the model and see if it results into similar results
+- Also, try to split the data into train/test, use training data for model, and predict test data using the model and find out accuracy, precision etc. 
+- Add population of the Borough to find out shooting percentage by population and then see if the modeling results are same. 
+
+
+### Sources of Bias
+- My analysis is based on the given data and not based on my personal opinion about any gender, race or sex. 
+- I also assumed, the given data is free from all bias, to focus on the given task
+
+### Key Conclusion based on the given data
+- According to the given data around 25% of the shooting resulted in murders
+- Shooting have gradually decreased from 2006 thru 2018, but again there is sudden spike in shooting in 2020 and 2021, probably due to Covid
+- Most of the shooting have been recorded in Brooklyn
+- Most of the Victim is in the age group of 25-44 followed by 18-24 age group
+- Almost 32% of Perpetrator's data, ie Age, Sex and Race is missing, which could imply that perpetrator was never found in those cases
+- According to the model, JURISDICTION_CODEPatrol, LOC_OF_OCCUR_DESCOUTSIDE, PERP_AGE_GROUP25-44, PERP_AGE_GROUP45-64 are found to impact most, if the shooting will result into murder
